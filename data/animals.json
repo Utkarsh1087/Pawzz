@@ -1,0 +1,102 @@
+[
+  {
+    "id": "animal-bruno",
+    "name": "Bruno",
+    "species": "Dog",
+    "breed": "Golden Retriever",
+    "age": "4 years",
+    "ownerId": "user-pet-parent",
+    "gender": "Male",
+    "microchipId": "981020002938192",
+    "vaccinationStatus": "Up to date",
+    "timeline": [
+      {
+        "id": "rec-1",
+        "date": "2026-08-15",
+        "title": "Annual 7-in-1 Booster (DHPPi+L)",
+        "type": "vaccination",
+        "notes": "Routine vaccination completed with Nobivac DHPPi. No adverse reaction observed.",
+        "vetName": "Dr. Meera Nair (Paws & Claws)",
+        "nextDueDate": "2027-08-15"
+      },
+      {
+        "id": "rec-2",
+        "date": "2026-07-10",
+        "title": "Anti-Rabies Vaccine (ARV)",
+        "type": "vaccination",
+        "notes": "Annual rabies prophylaxis shot administered.",
+        "vetName": "Dr. Meera Nair",
+        "nextDueDate": "2027-07-10"
+      },
+      {
+        "id": "rec-3",
+        "date": "2026-06-02",
+        "title": "Broad-Spectrum Deworming",
+        "type": "deworming",
+        "notes": "Administered Drontal Plus (1.5 tablets per weight 32kg).",
+        "vetName": "Dr. R. Sharma",
+        "nextDueDate": "2026-09-02"
+      }
+    ]
+  },
+  {
+    "id": "animal-milo",
+    "name": "Milo",
+    "species": "Cat",
+    "breed": "Persian Tabby",
+    "age": "2 years",
+    "ownerId": "user-pet-parent",
+    "gender": "Male",
+    "microchipId": "981020008821034",
+    "vaccinationStatus": "Due soon",
+    "timeline": [
+      {
+        "id": "rec-4",
+        "date": "2026-05-20",
+        "title": "Tricat Trio (FVRCP Vaccine)",
+        "type": "vaccination",
+        "notes": "Feline Viral Rhinotracheitis, Calicivirus, Panleukopenia vaccine administered.",
+        "vetName": "Dr. Meera Nair",
+        "nextDueDate": "2026-09-20"
+      },
+      {
+        "id": "rec-5",
+        "date": "2026-04-12",
+        "title": "Routine Dental Scaling & Checkup",
+        "type": "checkup",
+        "notes": "Mild plaque buildup cleaned. Gums healthy.",
+        "vetName": "Pet Care Clinic"
+      }
+    ]
+  },
+  {
+    "id": "animal-luna",
+    "name": "Luna",
+    "species": "Dog",
+    "breed": "Indian Indie",
+    "age": "1.5 years",
+    "ownerId": "user-rescuer",
+    "gender": "Female",
+    "microchipId": "INDIE-DEL-4921",
+    "vaccinationStatus": "Up to date",
+    "timeline": [
+      {
+        "id": "rec-6",
+        "date": "2026-08-01",
+        "title": "Animal Birth Control (ABC) Spay Surgery",
+        "type": "surgery",
+        "notes": "Successful laparoscopic spay surgery by NGO veterinary team. Ear notched for identification.",
+        "vetName": "Delhi Street Pet Foundation"
+      },
+      {
+        "id": "rec-7",
+        "date": "2026-08-01",
+        "title": "Anti-Rabies Vaccine & 9-in-1 Primary",
+        "type": "vaccination",
+        "notes": "Community dog primary immunisation series.",
+        "vetName": "Dr. Ananya Ray",
+        "nextDueDate": "2027-08-01"
+      }
+    ]
+  }
+]
