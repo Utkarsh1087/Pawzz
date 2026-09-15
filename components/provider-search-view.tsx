@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
+import React, { useState, useMemo } from "react";
 import type { Provider } from "@/lib/types";
 import { calculateDistanceKm, isProviderOpenNow } from "@/lib/provider-service";
 
@@ -19,6 +18,15 @@ const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
   chandigarh: { lat: 30.7333, lng: 76.7794 },
 };
 
+const CATEGORIES = [
+  { id: "", label: "All Services" },
+  { id: "veterinary_clinic", label: "Vet Clinics" },
+  { id: "emergency_vet", label: "24/7 Emergency" },
+  { id: "animal_ambulance", label: "Ambulance" },
+  { id: "ngo", label: "NGOs & Rescues" },
+  { id: "boarding", label: "Boarding" },
+];
+
 export function ProviderSearchView({
   initialProviders,
   defaultCity = "",
@@ -27,48 +35,39 @@ export function ProviderSearchView({
   const [searchCity, setSearchCity] = useState(defaultCity);
   const [selectedService, setSelectedService] = useState(defaultService);
   const [radiusKm, setRadiusKm] = useState(50);
-  const [onlyVerified, setOnlyVerified] = useState(false);
   const [onlyOpenNow, setOnlyOpenNow] = useState(false);
+  const [onlyVerified, setOnlyVerified] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError] = useState("");
   const [sosModalProvider, setSosModalProvider] = useState<Provider | null>(null);
   const [sosPetDetails, setSosPetDetails] = useState({ petName: "", notes: "" });
 
-  // Handle GPS location request
   const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setGeoError("Geolocation is not supported by your browser.");
-      return;
-    }
+    if (!navigator.geolocation) return;
     setGeoLoading(true);
-    setGeoError("");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setUserLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-          name: "Current GPS Location",
+          name: "Live Location",
         });
         setGeoLoading(false);
       },
-      (error) => {
+      () => {
         setGeoLoading(false);
-        setGeoError("Could not retrieve your location. Showing default city results.");
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   };
 
-  // Base reference coords for distance calculation
   const referenceCoords = useMemo(() => {
     if (userLocation) return { lat: userLocation.lat, lng: userLocation.lng };
     const cityKey = searchCity.trim().toLowerCase();
     if (cityKey && CITY_COORDINATES[cityKey]) return CITY_COORDINATES[cityKey];
-    return CITY_COORDINATES.delhi; // Default fallback to Delhi
+    return CITY_COORDINATES.delhi;
   }, [userLocation, searchCity]);
 
-  // Compute distances & filter providers
   const filteredProviders = useMemo(() => {
     return initialProviders
       .map((provider) => {
@@ -82,187 +81,141 @@ export function ProviderSearchView({
         };
       })
       .filter((provider) => {
-        // City match
         if (searchCity.trim() && !userLocation) {
           const matchCity = provider.city.toLowerCase().includes(searchCity.trim().toLowerCase());
           if (!matchCity) return false;
         }
-        // Service match
-        if (selectedService && provider.type !== selectedService) {
-          return false;
-        }
-        // Verified match
-        if (onlyVerified && !provider.verified) {
-          return false;
-        }
-        // Open now match
-        if (onlyOpenNow && !provider.isOpen) {
-          return false;
-        }
-        // Radius filter
-        if (radiusKm && provider.distanceKm > radiusKm) {
-          return false;
-        }
+        if (selectedService && provider.type !== selectedService) return false;
+        if (onlyVerified && !provider.verified) return false;
+        if (onlyOpenNow && !provider.isOpen) return false;
+        if (radiusKm && provider.distanceKm > radiusKm) return false;
         return true;
       })
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }, [initialProviders, referenceCoords, searchCity, selectedService, onlyVerified, onlyOpenNow, radiusKm, userLocation]);
 
-  const serviceLabels: Record<string, string> = {
-    veterinary_clinic: "🏥 Veterinary Clinic",
-    emergency_vet: "🚨 Emergency Vet",
-    animal_ambulance: "🚑 Animal Ambulance",
-    ngo: "🤝 NGO & Rescue",
-    rescuer: "🦸 Rescuer Volunteer",
-    boarding: "🏡 Pet Boarding",
+  const typeLabels: Record<string, string> = {
+    veterinary_clinic: "Clinic",
+    emergency_vet: "24/7 Emergency",
+    animal_ambulance: "Ambulance",
+    ngo: "NGO & Rescue",
+    rescuer: "Volunteer Rescuer",
+    boarding: "Boarding",
   };
 
   return (
-    <div className="space-y-8">
-      {/* ----------------- SEARCH & CONTROLS CARD ----------------- */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📍</span>
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Discover Nearby Care & Emergency Services</h2>
-            </div>
-            <p className="mt-1 text-xs sm:text-sm text-slate-600">
-              Locate verified veterinary hospitals, emergency ambulances, and rescue NGOs with live distance calculation.
-            </p>
+    <div className="space-y-6">
+      {/* ----------------- CLEAN SEARCH & FILTER BAR ----------------- */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+        {/* Search Input Row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <span className="absolute left-4 top-3 text-slate-400 text-sm">📍</span>
+            <input
+              type="text"
+              placeholder="Search by city (e.g. Delhi, Mumbai, Bengaluru)..."
+              value={searchCity}
+              onChange={(e) => {
+                setSearchCity(e.target.value);
+                if (userLocation) setUserLocation(null);
+              }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-full pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-[#a95f32] transition-colors"
+            />
+            {searchCity && (
+              <button
+                onClick={() => setSearchCity("")}
+                className="absolute right-3.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {/* GPS Location Button */}
-          <div>
-            <button
-              onClick={handleGetLocation}
-              disabled={geoLoading}
-              className={`flex items-center gap-2 text-xs sm:text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-sm ${
-                userLocation
-                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "bg-[#a95f32] text-white hover:bg-[#8e4922]"
-              }`}
-            >
-              {geoLoading ? (
-                <>
-                  <span className="animate-spin text-sm">🔄</span>
-                  <span>Detecting GPS...</span>
-                </>
-              ) : userLocation ? (
-                <>
-                  <span>📍</span>
-                  <span>Using Your GPS Location</span>
-                </>
-              ) : (
-                <>
-                  <span>📍</span>
-                  <span>Use My Live Location</span>
-                </>
-              )}
-            </button>
-            {geoError && <p className="text-[11px] text-rose-600 mt-1">{geoError}</p>}
-          </div>
+          <button
+            onClick={handleGetLocation}
+            disabled={geoLoading}
+            className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              userLocation
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-300"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+            }`}
+          >
+            {geoLoading ? (
+              <span className="animate-spin text-xs">🔄 Locating...</span>
+            ) : userLocation ? (
+              <span>✓ Live GPS Active</span>
+            ) : (
+              <span>🎯 Use My Location</span>
+            )}
+          </button>
         </div>
 
-        {/* Filters Form */}
-        <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* City / Location Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">City / Region</label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="e.g. Delhi, Mumbai, Bengaluru"
-                value={searchCity}
-                onChange={(e) => {
-                  setSearchCity(e.target.value);
-                  if (userLocation) setUserLocation(null); // Switch to manual city
-                }}
-                className="w-full text-xs sm:text-sm border border-slate-300 rounded-2xl px-3.5 py-2.5 focus:outline-none focus:border-[#a95f32]"
-              />
-              {searchCity && (
-                <button
-                  onClick={() => setSearchCity("")}
-                  className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+        {/* Category Pills & Quick Toggles */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          {/* Pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedService(cat.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  selectedService === cat.id
+                    ? "bg-[#a95f32] text-white shadow-xs font-semibold"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
 
-          {/* Service Type */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">Service Type</label>
-            <select
-              value={selectedService}
-              onChange={(e) => setSelectedService(e.target.value)}
-              className="w-full text-xs sm:text-sm border border-slate-300 rounded-2xl px-3.5 py-2.5 bg-white focus:outline-none focus:border-[#a95f32]"
-            >
-              <option value="">All Services & Rescues</option>
-              <option value="veterinary_clinic">🏥 Veterinary Clinic</option>
-              <option value="emergency_vet">🚨 24/7 Emergency Vet</option>
-              <option value="animal_ambulance">🚑 Animal Ambulance</option>
-              <option value="ngo">🤝 NGO / Shelter</option>
-              <option value="rescuer">🦸 Animal Rescuer</option>
-              <option value="boarding">🏡 Pet Boarding</option>
-            </select>
-          </div>
-
-          {/* Distance Radius Slider */}
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-bold text-slate-700">Search Radius</label>
-              <span className="text-xs font-bold text-[#a95f32]">{radiusKm} km</span>
-            </div>
-            <input
-              type="range"
-              min={2}
-              max={150}
-              step={2}
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
-              className="w-full accent-[#a95f32] cursor-pointer"
-            />
-          </div>
-
-          {/* Checkbox Toggles */}
-          <div className="flex flex-col justify-end space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={onlyVerified}
-                onChange={(e) => setOnlyVerified(e.target.checked)}
-                className="rounded accent-[#a95f32] w-4 h-4"
-              />
-              <span>Verified Only 🛡️</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+          {/* Inline Toggles */}
+          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
               <input
                 type="checkbox"
                 checked={onlyOpenNow}
                 onChange={(e) => setOnlyOpenNow(e.target.checked)}
-                className="rounded accent-[#a95f32] w-4 h-4"
+                className="accent-[#a95f32] rounded w-3.5 h-3.5"
               />
-              <span>Open Now 🟢</span>
+              <span>Open now</span>
             </label>
+
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
+              <input
+                type="checkbox"
+                checked={onlyVerified}
+                onChange={(e) => setOnlyVerified(e.target.checked)}
+                className="accent-[#a95f32] rounded w-3.5 h-3.5"
+              />
+              <span>Verified only</span>
+            </label>
+
+            <select
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(Number(e.target.value))}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 outline-none"
+            >
+              <option value={10}>Within 10 km</option>
+              <option value={25}>Within 25 km</option>
+              <option value={50}>Within 50 km</option>
+              <option value={150}>Within 150 km</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* ----------------- PROVIDER RESULTS COUNT & HEADER ----------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-        <p className="text-sm font-semibold text-slate-700">
-          Showing <span className="font-bold text-[#a95f32]">{filteredProviders.length}</span> animal care providers
-          {userLocation ? " sorted by distance from your current location" : " in this area"}
+      {/* ----------------- RESULTS META ----------------- */}
+      <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+        <p>
+          <strong className="text-slate-800 font-semibold">{filteredProviders.length}</strong> providers found
+          {userLocation ? " near your GPS location" : searchCity ? ` in ${searchCity}` : ""}
         </p>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span>Sort: Proximity (Nearest First)</span>
-        </div>
+        <span>Sorted by proximity</span>
       </div>
 
-      {/* ----------------- PROVIDER CARDS GRID ----------------- */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* ----------------- CLEAN PROVIDER CARDS ----------------- */}
+      <div className="grid gap-4 md:grid-cols-2">
         {filteredProviders.map((provider) => {
           const isEmergency =
             provider.type === "emergency_vet" ||
@@ -274,104 +227,93 @@ export function ProviderSearchView({
           return (
             <article
               key={provider.id}
-              className={`group relative rounded-3xl border bg-white p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
-                isEmergency ? "border-amber-300 ring-1 ring-amber-200/60" : "border-slate-200"
-              }`}
+              className="bg-white rounded-2xl border border-slate-200/90 p-5 hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between"
             >
               <div>
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#a95f32]">
-                        {serviceLabels[provider.type] || provider.type}
+                {/* Top Type & Status */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                        isEmergency
+                          ? "bg-rose-50 text-rose-700 border border-rose-100"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {typeLabels[provider.type] || provider.type}
+                    </span>
+
+                    {provider.verified && (
+                      <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-0.5">
+                        <svg className="w-3 h-3 text-emerald-600 inline" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Verified
                       </span>
-                      {provider.emergencyAvailable && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 animate-pulse">
-                          24/7 SOS 🚨
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="mt-1 text-xl font-bold text-slate-900 group-hover:text-[#a95f32] transition-colors">
-                      {provider.name}
-                    </h3>
+                    )}
                   </div>
 
-                  <span
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${
-                      provider.verified
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        : "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {provider.verified ? "Verified 🛡️" : "Unverified"}
+                  <span className="text-xs font-semibold text-[#a95f32] bg-amber-50/80 px-2 py-0.5 rounded-md">
+                    {provider.distanceKm} km away
                   </span>
                 </div>
 
-                <p className="mt-2 text-xs sm:text-sm text-slate-600 line-clamp-2">{provider.description}</p>
+                {/* Name */}
+                <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                  {provider.name}
+                </h3>
 
-                {/* Status & Distance badges */}
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-bold text-[#a95f32] bg-amber-50 border border-amber-200/80 px-3 py-1 rounded-full">
-                    📍 {provider.distanceKm} km away
-                  </span>
-                  <span
-                    className={`px-2.5 py-1 rounded-full font-semibold ${
-                      provider.isOpen
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {provider.isOpen ? "🟢 Open Now" : "⚪ Closed"}
-                  </span>
-                  <span className="bg-slate-50 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-full">
-                    🏙️ {provider.city}
-                  </span>
-                </div>
+                {/* Address */}
+                <p className="text-xs text-slate-500 mt-1">
+                  {provider.address}
+                </p>
 
-                {/* Animal Types and Services */}
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {provider.animalsTreated?.map((item) => (
-                    <span key={item} className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                      🐾 {item}
-                    </span>
-                  ))}
+                {/* Description */}
+                <p className="text-xs text-slate-600 mt-2.5 line-clamp-2 leading-relaxed">
+                  {provider.description}
+                </p>
+
+                {/* Info row: Open status & rating */}
+                <div className="mt-3.5 flex items-center gap-3 text-xs text-slate-500 pt-3 border-t border-slate-100">
+                  <span className={`inline-flex items-center gap-1 font-medium ${provider.isOpen ? "text-emerald-700" : "text-slate-400"}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${provider.isOpen ? "bg-emerald-500" : "bg-slate-300"}`} />
+                    {provider.isOpen ? "Open now" : "Closed"}
+                  </span>
+                  <span>•</span>
+                  <span>★ {provider.rating} ({provider.reviews})</span>
+                  <span>•</span>
+                  <span className="truncate">{provider.animalsTreated?.slice(0, 3).join(", ")}</span>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="text-xs text-slate-500">
-                  <div className="font-semibold text-slate-800">⭐ {provider.rating} ({provider.reviews} reviews)</div>
-                  <div className="text-[11px] text-slate-500 truncate max-w-[200px]">📍 {provider.address}</div>
-                </div>
+              {/* Bottom Actions */}
+              <div className="mt-4 pt-3 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setSosModalProvider(provider)}
+                  className={`text-xs font-bold px-4 py-2 rounded-full transition-all flex items-center gap-1.5 ${
+                    isEmergency
+                      ? "bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+                      : "bg-[#a95f32] hover:bg-[#8e4922] text-white shadow-xs"
+                  }`}
+                >
+                  <span>🚨</span>
+                  <span>1-Click SOS</span>
+                </button>
 
-                <div className="flex items-center gap-2">
-                  {/* Emergency WhatsApp SOS Button */}
-                  <button
-                    onClick={() => setSosModalProvider(provider)}
-                    className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-sm transition-all transform active:scale-95"
-                    title="1-Click Emergency SOS / WhatsApp Dispatch"
-                  >
-                    <span>🚨</span>
-                    <span>1-Click SOS</span>
-                  </button>
-
-                  {/* Google Maps link */}
+                <div className="flex items-center gap-1.5">
                   <a
                     href={googleMapsUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200 transition-colors"
-                    title="Navigate in Google Maps"
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200 transition-colors text-xs font-medium flex items-center gap-1"
+                    title="Get Directions"
                   >
-                    🗺️
+                    <span>Maps ↗</span>
                   </a>
 
-                  {/* Direct Call Link */}
                   <a
                     href={`tel:${provider.phone}`}
-                    className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200 transition-colors"
+                    className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200 transition-colors text-xs"
                     title={`Call ${provider.phone}`}
                   >
                     📞
@@ -384,108 +326,92 @@ export function ProviderSearchView({
       </div>
 
       {filteredProviders.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-6">
-          <p className="text-4xl mb-2">🔍</p>
-          <h3 className="text-lg font-bold text-slate-900">No Providers Found</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Try expanding the search radius slider, selecting "All Services", or resetting city filters.
-          </p>
+        <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-6">
+          <p className="text-2xl mb-1">🔍</p>
+          <h4 className="text-sm font-bold text-slate-800">No matching providers found</h4>
+          <p className="text-xs text-slate-500 mt-1">Try resetting the filters or widening the search radius.</p>
           <button
             onClick={() => {
               setSearchCity("");
               setSelectedService("");
-              setRadiusKm(100);
-              setOnlyVerified(false);
+              setRadiusKm(150);
               setOnlyOpenNow(false);
+              setOnlyVerified(false);
             }}
-            className="mt-4 text-xs font-bold text-white bg-[#a95f32] px-5 py-2.5 rounded-full shadow-sm"
+            className="mt-3 text-xs font-semibold text-[#a95f32] hover:underline"
           >
-            Reset All Filters
+            Reset all filters
           </button>
         </div>
       )}
 
-      {/* ----------------- 1-CLICK SOS EMERGENCY DISPATCH MODAL ----------------- */}
+      {/* ----------------- 1-CLICK SOS MODAL ----------------- */}
       {sosModalProvider && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-rose-300 w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between border-b border-rose-100 pb-3 mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl animate-bounce">🚨</span>
-                <div>
-                  <h3 className="text-lg font-bold text-rose-900">Emergency Animal Dispatch</h3>
-                  <p className="text-xs text-rose-700">Contacting {sosModalProvider.name}</p>
-                </div>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-3xl shadow-2xl p-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3 mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>🚨</span>
+                  <span>Emergency SOS Dispatch</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Contacting {sosModalProvider.name}</p>
               </div>
               <button
                 onClick={() => setSosModalProvider(null)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-700 text-sm p-1 rounded-full hover:bg-slate-100"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 mb-4">
-              Send an instant pre-formatted emergency dispatch alert via WhatsApp or initiate a direct emergency phone call.
-            </p>
-
             <div className="space-y-3 mb-5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Pet / Animal Name (Optional)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Animal Name / Type (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. Bruno (or Stray Pup)"
+                  placeholder="e.g. Stray puppy / Dog Bruno"
                   value={sosPetDetails.petName}
                   onChange={(e) => setSosPetDetails({ ...sosPetDetails, petName: e.target.value })}
-                  className="w-full text-xs sm:text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-rose-500"
+                  className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-[#a95f32]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Emergency Condition / Symptoms</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Condition & Location</label>
                 <textarea
-                  rows={3}
-                  placeholder="e.g. Hit by car / Severe bleeding / Unconscious / Ingested toxic substance"
+                  rows={2}
+                  placeholder="e.g. Hit by vehicle / Severe bleeding near Saket Metro"
                   value={sosPetDetails.notes}
                   onChange={(e) => setSosPetDetails({ ...sosPetDetails, notes: e.target.value })}
-                  className="w-full text-xs sm:text-sm border border-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-rose-500"
+                  className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 outline-none focus:border-[#a95f32]"
                 />
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* WhatsApp SOS Button */}
+            <div className="flex gap-2.5">
               <a
                 href={`https://wa.me/${sosModalProvider.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
                   `🚨 EMERGENCY ANIMAL CARE REQUEST 🚨\n\nProvider: ${sosModalProvider.name}\nAnimal: ${
                     sosPetDetails.petName || "Animal in distress"
-                  }\nCondition: ${sosPetDetails.notes || "Urgent emergency medical attention required!"}\n\nPlease confirm availability and dispatch guidance immediately!`
+                  }\nCondition: ${sosPetDetails.notes || "Urgent medical attention required!"}\n\nPlease confirm availability!`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 text-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+                className="flex-1 text-center bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
                 <span>💬</span>
-                <span>Send WhatsApp SOS</span>
+                <span>WhatsApp SOS</span>
               </a>
 
-              {/* Direct Call Button */}
               <a
                 href={`tel:${sosModalProvider.phone}`}
-                className="flex-1 text-center bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-3 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
+                className="flex-1 text-center bg-slate-900 hover:bg-black text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
                 <span>📞</span>
-                <span>Direct Emergency Call</span>
+                <span>Direct Call</span>
               </a>
             </div>
-
-            <button
-              onClick={() => setSosModalProvider(null)}
-              className="w-full mt-3 text-center text-xs font-medium text-slate-500 hover:text-slate-800 py-1"
-            >
-              Close
-            </button>
           </div>
         </div>
       )}

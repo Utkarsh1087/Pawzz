@@ -11,12 +11,11 @@ export default async function ProvidersPage({
   const city = typeof params.city === "string" ? params.city : "";
 
   return (
-    <div className="app-page mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="app-page mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#a95f32]">Provider directory</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-900">Veterinary Clinics, Ambulances & Rescues</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Find verified veterinary services, animal ambulances, and emergency clinics with live distance calculation and emergency SOS dispatch.
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Veterinary & Emergency Care</h1>
+        <p className="mt-1 text-xs sm:text-sm text-slate-500">
+          Find verified clinics, animal ambulances, and emergency rescues near you.
         </p>
       </div>
 
@@ -28,4 +27,5 @@ export default async function ProvidersPage({
     </div>
   );
 }
+
 
